@@ -1,0 +1,31 @@
+name: "PHP analysis"
+
+on:
+  push:
+
+jobs:
+  PHP_CodeSniffer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run Composer Install
+        run: composer install
+      - run: echo "::add-matcher::.github/problem-matcher.json"
+      - name: Run PHPCS
+        run: ./vendor/bin/phpcs --report=checkstyle --standard=./phpcs.xml ./src/PhpSample.php || true
+  Psalm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run Composer Install
+        run: composer install
+      - name: Run Psalm
+        run: ./vendor/bin/psalm --output-format=github --no-cache || true
+  PHP_Mess_Detector:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run Composer Install
+        run: composer install
+      - name: Run PHPMD
+        run: vendor/bin/phpmd ./src/PhpSample.php github ./phpmd.xml || true

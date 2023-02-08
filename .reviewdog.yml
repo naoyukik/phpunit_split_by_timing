@@ -1,0 +1,31 @@
+runner:
+  phpcs:
+    cmd: ./vendor/bin/phpcs --standard=./phpcs.xml --report=emacs ./src/PhpSample.php
+    errorformat:
+      - "%f:%l:%c: %trror - %m"
+      - "%f:%l:%c: %tarning - %m"
+    level: warning
+  textlint:
+    cmd: npm run textlint
+    errorformat:
+      - "%E%f: line %l, col %c, Error - %m"
+      - "%C%m"
+    level: warning
+  deno_lint:
+    cmd: /home/runner/.deno/bin/deno lint --compact ./src/ESLintSample.ts
+    errorformat:
+      - "%E%f: line %l, col %c - %m"
+    level: warning
+  textlint_dagger:
+    cmd: npm run dagger:textlint
+    errorformat:
+      - "%E%f: line %l, col %c, Error - %m"
+      - "%C%m"
+    level: warning
+  eslint_dagger:
+    cmd: npm run dagger:eslint
+    errorformat:
+      - "%+P%f"
+      - "%E %#%l:%c %#error %#%m"
+      - "%W %#%l:%c %#warning %#%m"
+    level: warning

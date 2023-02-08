@@ -1,0 +1,36 @@
+version: "3.8"
+services:
+  app:
+    build:
+      context: .
+      dockerfile: ./docker/php/Dockerfile
+      target: with_xdebug
+    image: ${COMPOSE_PROJECT_NAME}:latest
+    volumes:
+      - ./:/app
+      - /app/vendor
+    environment:
+      - XDEBUG_LOAD_MODULE=${XDEBUG_LOAD_MODULE}
+      - XDEBUG_MODE=${XDEBUG_MODE}
+      - XDEBUG_START_WITH_REQUEST=${XDEBUG_START_WITH_REQUEST}
+      - XDEBUG_CLIENT_HOST=${XDEBUG_CLIENT_HOST}
+      - XDEBUG_CLIENT_PORT=${XDEBUG_CLIENT_PORT}
+      - XDEBUG_IDEKEY=${XDEBUG_IDEKEY}
+  qodana:
+    image: jetbrains/qodana-php:2022.3-eap
+    ports:
+      - 8080:8080
+    volumes:
+      - ./:/data/project
+      - ./qodana/logs:/data/results/
+      - ./qodana/plugins/PhpInspectionsEA.jar:/opt/idea/plugins/PhpInspectionsEA.jar
+      - ./qodana/options/ea_extended.xml:/root/.config/idea/options/ea_extended.xml
+    command: ["--show-report", "--save-report"]
+  qodana-js:
+    image: jetbrains/qodana-js:2022.3-eap
+    ports:
+      - 8080:8080
+    volumes:
+      - ./:/data/project
+      - ./qodana/logs:/data/results/
+    command: ["--show-report", "--save-report"]
