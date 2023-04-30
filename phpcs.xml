@@ -3,10 +3,13 @@
     <arg value="s"/>
     <arg name="report" value="code"/>
     <arg name="report-width" value="160"/>
+    <arg name="parallel" value="2"/>
 
     <exclude-pattern>\.git</exclude-pattern>
     <exclude-pattern>/*/tmp/</exclude-pattern>
     <exclude-pattern>tests/*/templates/*</exclude-pattern>
+    <exclude-pattern>*/phpstorm-stubs/*</exclude-pattern>
+    <exclude-pattern>*/vendor/*</exclude-pattern>
 
     <!-- PSR12 Standard -->
     <rule ref="PSR12">

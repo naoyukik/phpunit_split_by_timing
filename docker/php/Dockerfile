@@ -33,8 +33,9 @@ WORKDIR /app
 
 FROM base_php as composer_install
 
+RUN rm -rf /app/vendor
 ADD composer.json /app/composer.json
-RUN composer install
+RUN cd /app && composer install
 RUN cp /app/composer.json /tmp/composer.json
 RUN cp /app/composer.lock /tmp/composer.lock
 
