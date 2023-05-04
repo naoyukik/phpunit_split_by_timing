@@ -5,7 +5,6 @@
  *
  * @license http://opensource.org/licenses/MIT MIT
  */
-
 declare(strict_types=1);
 
 namespace App;
@@ -13,20 +12,48 @@ namespace App;
 use SimpleXMLElement;
 
 /**
- * PHPUnit log split by timing
+ * JUnit XML Reports split by timing
  */
-class PhpunitLogSplitByTiming
+class JUnitXMLReportSplitByTiming
 {
+    public const PARALLELISM = '1';
+    public const OUTPUT = 'phpunit';
+    public const INPUT = 'phpunit-results.xml';
+
     /**
-     * @param array $argv
+     * @return array{"--input-log": string, "--output-log": string, "--parallelism": string}
+     */
+    private static function initOptions(): array
+    {
+        return [
+            '--input-log' => self::INPUT,
+            '--output-log' => self::OUTPUT,
+            '--parallelism' => self::PARALLELISM,
+        ];
+    }
+
+    /**
+     * @param string[] $argv
      * @return void
      */
     public static function main(array $argv): void
     {
         $files = [];
 
-        $argvFiles = self::getTestsFileByArgv($argv);
-        $xmlFile = "phpunit-results.xml";
+        $argvs = self::getTestsFileByArgv($argv);
+
+        $extractOptions = self::extractOptions($argvs);
+        /**
+         * @var array{
+         *     "--input-log": string,
+         *     "--output-log": string,
+         *     "--parallelism": string,
+         * } $options
+         */
+        $options = array_merge(self::initOptions(), $extractOptions);
+        $argvFiles = self::deleteOptions($argvs, $options);
+
+        $xmlFile = $options['--input-log'];
         $xmlData = simplexml_load_string(file_get_contents($xmlFile));
         if ($xmlData !== false) {
             $xmlArr = self::searchFilePath($xmlData);
@@ -35,7 +62,9 @@ class PhpunitLogSplitByTiming
 
         $addFiles = self::addMissingFiles($files, $argvFiles);
         $useList = self::removeMissingFiles($addFiles, $argvFiles);
-        $groups = self::greedy($useList, 3);
+
+        $parallelism = $options['--parallelism'];
+        $groups = self::greedy($useList, (int)$parallelism);
 
         /**
          * @var int $i
@@ -43,7 +72,7 @@ class PhpunitLogSplitByTiming
          */
         foreach ($groups as $i => $iValue) {
             $groupNumber = $i + 1;
-            self::createPhpUnitXml($iValue, $groupNumber);
+            self::createPhpUnitXml($iValue, $groupNumber, $options['--output-log']);
         }
     }
 
@@ -152,20 +181,23 @@ class PhpunitLogSplitByTiming
      * Add files not included in previous runs
      *
      * @param array $files
-     * @param string[] $argvFiles
+     * @param string[]|null $argvFiles
      * @return array
      */
-    public static function addMissingFiles(array $files, array $argvFiles): array
+    public static function addMissingFiles(array $files, ?array $argvFiles): array
     {
         $filesKeys = array_keys($files);
 
-        if (empty($argvFiles) === false) {
-            foreach ($argvFiles as $argvFile) {
-                if (in_array($argvFile, $filesKeys, true) === false) {
-                    $files[$argvFile] = 0;
-                }
+        if (empty($argvFiles) === true) {
+            return [];
+        }
+
+        foreach ($argvFiles as $argvFile) {
+            if (in_array($argvFile, $filesKeys, true) === false) {
+                $files[$argvFile] = 0;
             }
         }
+
         return $files;
     }
 
@@ -195,10 +227,15 @@ class PhpunitLogSplitByTiming
      *
      * @param array $files
      * @param int $groupNumber
+     * @param string $outputFileNamePrefix
      * @return void
      */
-    public static function createPhpUnitXml(array $files, int $groupNumber): void
+    public static function createPhpUnitXml(array $files, int $groupNumber, string $outputFileNamePrefix): void
     {
+        if (empty($files) === true) {
+            return;
+        }
+
         $baseDir = realpath('./');
         $xmlFileStringData = [];
         /** @var string $file */
@@ -208,7 +245,7 @@ class PhpunitLogSplitByTiming
         $testFileString = implode("\n", $xmlFileStringData);
         $template = <<<XML
 <?xml version="1.0" encoding="UTF-8"?>
-<phpunit >
+<phpunit>
     <testsuites>
         <testsuite name="Test Case">
             {$testFileString}
@@ -217,8 +254,63 @@ class PhpunitLogSplitByTiming
 </phpunit>
 XML;
 
-        file_put_contents("./ci_phpunit_{$groupNumber}.xml", $template);
+        file_put_contents("./{$outputFileNamePrefix}{$groupNumber}.xml", $template);
+    }
+
+    /**
+     * @param string[] $argvs
+     * @return string[]
+     */
+    public static function extractOptions(array $argvs): array
+    {
+        $options = array_filter($argvs, static function ($argv) {
+            return str_contains($argv, '--');
+        });
+        $options = array_map(static function ($argv) {
+            return explode('=', $argv);
+        }, $options);
+
+        /** @var string[] $options */
+        $options = array_reduce(
+            $options,
+            /**
+             * @param array $carry
+             * @param string[] $argv
+             * @return array
+             */
+            static function (array $carry, array $argv): array {
+                $carry[$argv[0]] = $argv[1];
+                return $carry;
+            },
+            []
+        );
+
+        return $options;
+    }
+
+    /**
+     * @param array $argvs
+     * @param array<array-key, string> $options
+     * @return string[]
+     */
+    public static function deleteOptions(array $argvs, array $options): array
+    {
+        /** @var array<array-key, string> $stringOptions */
+        $stringOptions = [];
+
+        foreach ($options as $index => $option) {
+            $stringOptions[] = $index . '=' . $option;
+        }
+
+        /** @var string[] $remainingData */
+        $remainingData = array_filter($argvs, static function ($argv) use ($stringOptions) {
+            return in_array($argv, $stringOptions, true) === false;
+        });
+
+        return $remainingData;
     }
 }
 
-//PhpunitLogSplitByTiming::main($argv);
+if (count(debug_backtrace()) === 0) {
+    JUnitXMLReportSplitByTiming::main($argv);
+}
